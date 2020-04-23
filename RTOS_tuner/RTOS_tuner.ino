@@ -1,17 +1,4 @@
-/*
-* Modified Arduino Frequency Detection
-* by Nicole Grimwood
-*
-* For more information please visit: 
-* https://www.instructables.com/id/Arduino-Guitar-Tuner/
-* 
-* Slightly edited version of:
-* Arduino Frequency Detection
-* created October 7, 2012
-* by Amanda Ghassaei
-*
-* This code is in the public domain.
-*/
+#include <Arduino_FreeRTOS.h>
 
 //clipping indicator variables
 boolean clipping = 0;
@@ -38,10 +25,74 @@ int timerTol = 10;            //timer tolerance- adjust this if you need (defaul
 unsigned int ampTimer = 0;
 byte maxAmp = 0;
 byte checkMaxAmp;
-byte ampThreshold = 5;       //raise if you have a very noisy signal (default = 30)
+byte ampThreshold = 30;       //raise if you have a very noisy signal (default = 30)
 
-void setup(){
-  
+// define two tasks for Blink & AnalogRead
+void TaskBlink(void *pvParameters);
+void TaskAnalogRead(void *pvParameters);
+void TaskReadFrequency(void *pvParameters);
+
+// the setup function runs once when you press reset or power the board
+void setup() {
+
+  // Now set up two tasks to run independently.
+  xTaskCreate(TaskBlink, "Blink", 128, NULL, 2, NULL );
+  // A name just for humans, Stack size, priority
+
+  //xTaskCreate(TaskAnalogRead, "AnalogRead", 128, NULL, 1, NULL );
+  // This stack size can be checked & adjusted by reading Highwater
+  // priority
+
+  xTaskCreate(TaskReadFrequency, "ReadFrequency", 128, NULL, 1, NULL);
+   
+  // Now the task scheduler, which takes over control of scheduling individual tasks, is automatically started.
+}
+
+void loop()
+{
+  // Empty. Things are done in Tasks.
+}
+
+/*--------------------------------------------------*/
+/*---------------------- Tasks ---------------------*/
+/*--------------------------------------------------*/
+
+void TaskBlink(void *pvParameters)  // This is a task.
+{
+  (void) pvParameters;
+
+  // initialize digital pin 13 as an output.
+  pinMode(13, OUTPUT);
+
+  for (;;) // A Task shall never return or exit.
+  {
+    digitalWrite(13, HIGH);   // turn the LED on (HIGH is the voltage level)
+    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
+    digitalWrite(13, LOW);    // turn the LED off by making the voltage LOW
+    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
+  }
+}
+
+//void TaskAnalogRead(void *pvParameters)  // This is a task.
+//{
+//  (void) pvParameters;
+//
+//  // initialize serial communication at 9600 bits per second:
+//  Serial.begin(9600);
+//
+//  for (;;)
+//  {
+//    // read the input on analog pin 0:
+//    int sensorValue = analogRead(A0);
+//    // print out the value you read:
+//    Serial.println(sensorValue);
+//    vTaskDelay(1);  // one tick delay (15ms) in between reads for stability
+//  }
+//}
+
+void TaskReadFrequency(void *pvParameters){
+
+  (void) pvParameters;
   Serial.begin(9600);
   
   pinMode(13,OUTPUT);//led indicator pin
@@ -65,6 +116,32 @@ void setup(){
   ADCSRA |= (1 << ADSC);                    //start ADC measurements
   
   sei();                                    //enable interrupts
+
+
+  for(;;){
+    checkClipping();
+  
+    if (checkMaxAmp>ampThreshold){
+      frequency = 38462/float(period);//calculate frequency timer rate/period
+    
+      //print results
+      Serial.print(frequency);
+      Serial.println(" hz");
+    }
+    vTaskDelay( 100 / portTICK_PERIOD_MS ); // wait for 100 ms
+  }
+}
+
+void reset(){//clean out some variables
+  index = 0;                    //reset index
+  noMatch = 0;                  //reset match couner
+  maxSlope = 0;                 //reset slope
+}
+
+void checkClipping(){//manage clipping indication
+  if (clipping){              //if currently clipping
+    clipping = 0;
+  }
 }
 
 ISR(ADC_vect) {                                 //when new ADC value ready
@@ -134,32 +211,5 @@ ISR(ADC_vect) {                                 //when new ADC value ready
     checkMaxAmp = maxAmp;
     maxAmp = 0;
   }
-  
-}
 
-void reset(){//clean out some variables
-  index = 0;                    //reset index
-  noMatch = 0;                  //reset match couner
-  maxSlope = 0;                 //reset slope
-}
-
-void checkClipping(){//manage clipping indication
-  if (clipping){              //if currently clipping
-    clipping = 0;
-  }
-}
-
-void loop(){
-  checkClipping();
-  
-  if (checkMaxAmp>ampThreshold){
-    frequency = 38462/float(period);//calculate frequency timer rate/period
-  
-    //print results
-    Serial.print(frequency);
-    Serial.println(" hz");
-  }
-  
-  delay(100);
-  
 }
