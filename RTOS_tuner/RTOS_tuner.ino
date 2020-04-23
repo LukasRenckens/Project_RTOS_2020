@@ -27,6 +27,10 @@ byte maxAmp = 0;
 byte checkMaxAmp;
 byte ampThreshold = 30;       //raise if you have a very noisy signal (default = 30)
 
+//Functions forward declaration
+void reset(void);
+void checkClipping();
+
 // define two tasks for Blink & AnalogRead
 void TaskBlink(void *pvParameters);
 void TaskAnalogRead(void *pvParameters);
@@ -73,22 +77,22 @@ void TaskBlink(void *pvParameters)  // This is a task.
   }
 }
 
-//void TaskAnalogRead(void *pvParameters)  // This is a task.
-//{
-//  (void) pvParameters;
-//
-//  // initialize serial communication at 9600 bits per second:
-//  Serial.begin(9600);
-//
-//  for (;;)
-//  {
-//    // read the input on analog pin 0:
-//    int sensorValue = analogRead(A0);
-//    // print out the value you read:
-//    Serial.println(sensorValue);
-//    vTaskDelay(1);  // one tick delay (15ms) in between reads for stability
-//  }
-//}
+void TaskAnalogRead(void *pvParameters)  // This is a task.
+{
+  (void) pvParameters;
+
+  // initialize serial communication at 9600 bits per second:
+  Serial.begin(9600);
+
+  for (;;)
+  {
+    // read the input on analog pin 0:
+    int sensorValue = analogRead(A0);
+    // print out the value you read:
+    Serial.println(sensorValue);
+    vTaskDelay(1);  // one tick delay (15ms) in between reads for stability
+  }
+}
 
 void TaskReadFrequency(void *pvParameters){
 
@@ -132,6 +136,10 @@ void TaskReadFrequency(void *pvParameters){
   }
 }
 
+/*--------------------------------------------------*/
+/*-------------------- Functions -------------------*/
+/*--------------------------------------------------*/
+
 void reset(){//clean out some variables
   index = 0;                    //reset index
   noMatch = 0;                  //reset match couner
@@ -144,6 +152,9 @@ void checkClipping(){//manage clipping indication
   }
 }
 
+/*--------------------------------------------------*/
+/*----------------------- ISR ----------------------*/
+/*--------------------------------------------------*/
 ISR(ADC_vect) {                                 //when new ADC value ready
   PORTB &= B11101111;                           //set pin 12 low
   prevData = newData;                           //store previous value
