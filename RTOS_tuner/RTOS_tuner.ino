@@ -25,7 +25,7 @@ int timerTol = 10;            //timer tolerance- adjust this if you need (defaul
 unsigned int ampTimer = 0;
 byte maxAmp = 0;
 byte checkMaxAmp;
-byte ampThreshold = 30;       //raise if you have a very noisy signal (default = 30)
+byte ampThreshold = 8;       //raise if you have a very noisy signal (default = 30) (8 -> vpp = 350mV)
 
 //Functions forward declaration
 void reset(void);
@@ -40,7 +40,7 @@ void TaskReadFrequency(void *pvParameters);
 void setup() {
 
   // Now set up two tasks to run independently.
-  xTaskCreate(TaskBlink, "Blink", 128, NULL, 2, NULL );
+  //xTaskCreate(TaskBlink, "Blink", 128, NULL, 2, NULL );
   // A name just for humans, Stack size, priority
 
   //xTaskCreate(TaskAnalogRead, "AnalogRead", 128, NULL, 1, NULL );
@@ -61,41 +61,40 @@ void loop()
 /*---------------------- Tasks ---------------------*/
 /*--------------------------------------------------*/
 
-void TaskBlink(void *pvParameters)  // This is a task.
-{
-  (void) pvParameters;
+//void TaskBlink(void *pvParameters)  // This is a task.
+//{
+//  (void) pvParameters;
+//
+//  // initialize digital pin 13 as an output.
+//  pinMode(13, OUTPUT);
+//
+//  for (;;) // A Task shall never return or exit.
+//  {
+//    digitalWrite(13, HIGH);   // turn the LED on (HIGH is the voltage level)
+//    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
+//    digitalWrite(13, LOW);    // turn the LED off by making the voltage LOW
+//    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
+//  }
+//}
 
-  // initialize digital pin 13 as an output.
-  pinMode(13, OUTPUT);
-
-  for (;;) // A Task shall never return or exit.
-  {
-    digitalWrite(13, HIGH);   // turn the LED on (HIGH is the voltage level)
-    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
-    digitalWrite(13, LOW);    // turn the LED off by making the voltage LOW
-    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
-  }
-}
-
-void TaskAnalogRead(void *pvParameters)  // This is a task.
-{
-  (void) pvParameters;
-
-  // initialize serial communication at 9600 bits per second:
-  Serial.begin(9600);
-
-  for (;;)
-  {
-    // read the input on analog pin 0:
-    int sensorValue = analogRead(A0);
-    // print out the value you read:
-    Serial.println(sensorValue);
-    vTaskDelay(1);  // one tick delay (15ms) in between reads for stability
-  }
-}
+//void TaskAnalogRead(void *pvParameters)  // This is a task.
+//{
+//  (void) pvParameters;
+//
+//  // initialize serial communication at 9600 bits per second:
+//  Serial.begin(9600);
+//
+//  for (;;)
+//  {
+//    // read the input on analog pin 0:
+//    int sensorValue = analogRead(A0);
+//    // print out the value you read:
+//    Serial.println(sensorValue);
+//    vTaskDelay(1);  // one tick delay (15ms) in between reads for stability
+//  }
+//}
 
 void TaskReadFrequency(void *pvParameters){
-
   (void) pvParameters;
   Serial.begin(9600);
   
@@ -121,12 +120,11 @@ void TaskReadFrequency(void *pvParameters){
   
   sei();                                    //enable interrupts
 
-
-  for(;;){
+  for(;;){                                  //inf loop
     checkClipping();
   
     if (checkMaxAmp>ampThreshold){
-      frequency = 38462/float(period);//calculate frequency timer rate/period
+      frequency = 38462/float(period);      //calculate frequency timer rate/period
     
       //print results
       Serial.print(frequency);
