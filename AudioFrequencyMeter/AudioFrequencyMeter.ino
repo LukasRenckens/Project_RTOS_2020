@@ -110,8 +110,8 @@ ISR(ADC_vect) {                                 //when new ADC value ready
       noMatch = 0;
       index = 0;                                //reset index
     }
-    else{//slope not steep enough
-      noMatch++;//increment no match counter
+    else{                                       //slope not steep enough
+      noMatch++;                                //increment no match counter
       if (noMatch>9){
         reset();
       }

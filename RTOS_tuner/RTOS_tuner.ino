@@ -47,7 +47,7 @@ void setup() {
   // This stack size can be checked & adjusted by reading Highwater
   // priority
 
-  xTaskCreate(TaskReadFrequency, "ReadFrequency", 128, NULL, 1, NULL);
+  xTaskCreate(TaskReadFrequency, "ReadFrequency", 128, NULL, 1, NULL);  //Task, Name, Stack size, PvParameters, Priority, PuxStackBuffer, pxTaskBuffer 
    
   // Now the task scheduler, which takes over control of scheduling individual tasks, is automatically started.
 }
@@ -124,8 +124,8 @@ void TaskReadFrequency(void *pvParameters){
     checkClipping();
   
     if (checkMaxAmp>ampThreshold){
-      frequency = 38462/float(period);      //calculate frequency timer rate/period
-    
+      frequency = 38500/float(period);      //calculate frequency timer rate/period
+      
       //print results
       Serial.print(frequency);
       Serial.println(" hz");
@@ -137,7 +137,6 @@ void TaskReadFrequency(void *pvParameters){
 /*--------------------------------------------------*/
 /*-------------------- Functions -------------------*/
 /*--------------------------------------------------*/
-
 void reset(){//clean out some variables
   index = 0;                    //reset index
   noMatch = 0;                  //reset match couner
@@ -145,11 +144,10 @@ void reset(){//clean out some variables
 }
 
 void checkClipping(){//manage clipping indication
-  if (clipping){              //if currently clipping
+  if (clipping){               //if currently clipping
     clipping = 0;
   }
 }
-
 /*--------------------------------------------------*/
 /*----------------------- ISR ----------------------*/
 /*--------------------------------------------------*/
@@ -204,12 +202,12 @@ ISR(ADC_vect) {                                 //when new ADC value ready
     }
   }
     
-  if (newData == 0 || newData == 1023){           //if clipping
-    clipping = 1;                                 //currently clipping
+  if (newData == 0 || newData == 1023){          //if clipping
+    clipping = 1;                                //currently clipping
     Serial.println("clipping");
   }
   
-  time++;//increment timer at rate of 38.5kHz
+  time++;//increment timer at rate of 38.5kHz (ADC inputbandwwidth = 38.5KHz)
   
   ampTimer++;//increment amplitude timer
   if (abs(127-ADCH)>maxAmp){
