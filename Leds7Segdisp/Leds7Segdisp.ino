@@ -1,3 +1,5 @@
+#include <math.h>
+
 #define SEG_A A3
 #define SEG_B A2
 #define SEG_C 12
@@ -12,6 +14,12 @@
 const int correct_leds[2] = {2, 3};
 const int low_leds[NUMBER_OF_LEDS] = {5, 7, 9};
 const int high_leds[NUMBER_OF_LEDS] = {4, 6, 8};
+
+float frequency;
+float correctFrequency;
+int octave;
+
+String readString = "";
 
 void setup() {
   Serial.begin(9600); // sets serial port for communication
@@ -38,46 +46,26 @@ void setup() {
 
 void loop() {
   // Test code
-  displayNote('A', false);
-  toggleNumberOfLeds(low_leds, 3);
-  delay(500);
-  displayNote('A', true);
-  toggleNumberOfLeds(low_leds, 2);
-  delay(500);
-  displayNote('B', false);
-  toggleNumberOfLeds(low_leds, 1);
-  delay(500);
-  displayNote('C', false);
-  toggleNumberOfLeds(low_leds, 0);
-  toggleCorrectLeds(true);
-  delay(500);
-  displayNote('C', true);
-  toggleCorrectLeds(false);
-  toggleNumberOfLeds(high_leds, 1);
-  delay(500);
-  displayNote('D', false);
-  toggleNumberOfLeds(high_leds, 2);
-  delay(500);
-  displayNote('D', true);
-  toggleNumberOfLeds(high_leds, 3);
-  delay(500);
-  displayNote('E', false);
-  toggleNumberOfLeds(high_leds, 2);
-  delay(500);
-  displayNote('F', false);
-  toggleNumberOfLeds(high_leds, 1);
-  delay(500);
-  displayNote('F', true);
-  toggleNumberOfLeds(high_leds, 0);
-  toggleCorrectLeds(true);
-  delay(500);
-  displayNote('G', false);
-  toggleCorrectLeds(false);
-  toggleNumberOfLeds(low_leds, 1);
-  delay(500);
-  displayNote('G', true);
-  toggleNumberOfLeds(low_leds, 2);
-  delay(500);
+  while (Serial.available()) {
+    if (Serial.available() >0) {
+      char c = Serial.read();  //gets one byte from serial buffer
+      readString += c; //makes the string readString
+    }
+
+    if (!Serial.available()) {
+      delay(1);
+    }
+  }
+
+  if (readString.length() > 0) {
+    frequency = readString.toFloat();
+    readString = "";
+  }
+
+  checkNote(frequency);
+  determineNumberOfLeds(frequency);
+
+  delay(100);
 }
 
 // Displays a note on the 7SEG-display
@@ -167,7 +155,7 @@ void displayNote(char note, bool sharp) {
 }
 
 // Puts the green LEDs on or off
-void toggleCorrectLeds(bool on) {
+void powerCorrectLeds(bool on) {
   if (on) {
     digitalWrite(correct_leds[0], HIGH);
     digitalWrite(correct_leds[1], HIGH);
@@ -177,8 +165,8 @@ void toggleCorrectLeds(bool on) {
   }
 }
 
-// 
-void toggleNumberOfLeds(int leds[NUMBER_OF_LEDS], int number) {
+// Toggle a number of leds on
+void setLeds(int leds[NUMBER_OF_LEDS], int number) {
   for (int i = 0; i < NUMBER_OF_LEDS; i++) {
     digitalWrite(leds[i], LOW);
   }
@@ -186,4 +174,159 @@ void toggleNumberOfLeds(int leds[NUMBER_OF_LEDS], int number) {
   for (int j = 0; j < number; j++) {
     digitalWrite(leds[j], HIGH);
   }
+}
+
+void determineNumberOfLeds(float frequency) {
+  float error = 0.125*pow(2,octave);
+
+  if (frequency < correctFrequency - error) {
+    float previous_tone = correctFrequency * pow(2,-1.0/12);
+    float halfway_previous_tone = calculateHalfway(previous_tone, correctFrequency - error);
+
+    float one_third = halfway_previous_tone + 2 * (correctFrequency - error - halfway_previous_tone)/3;
+    float two_thirds = halfway_previous_tone + (correctFrequency - error - halfway_previous_tone)/3;
+
+    powerCorrectLeds(false);
+    setLeds(high_leds, 0);
+    if (frequency < two_thirds) {
+      setLeds(low_leds, 3);
+    } else if (frequency < one_third) {
+      setLeds(low_leds, 2);
+    } else {
+      setLeds(low_leds, 1);
+    }
+    Serial.print(frequency);
+    Serial.print(",");
+    Serial.print(correctFrequency);
+    Serial.print(",");
+    Serial.print(one_third);
+    Serial.print(",");
+    Serial.print(two_thirds);
+    Serial.print(",");
+    Serial.println(halfway_previous_tone);
+  } else if (frequency > correctFrequency + error) {
+    float next_tone = correctFrequency * pow(2,1.0/12);
+    float halfway_next_tone = calculateHalfway(correctFrequency + error, next_tone);
+
+    float one_third = halfway_next_tone - 2 * (halfway_next_tone - (correctFrequency + error))/3;
+    float two_thirds = halfway_next_tone - (halfway_next_tone - (correctFrequency + error))/3;
+
+    powerCorrectLeds(false);
+    setLeds(low_leds, 0);
+    if (frequency > two_thirds) {
+      setLeds(high_leds, 3);
+    } else if (frequency > one_third) {
+      setLeds(high_leds, 2);
+    } else {
+      setLeds(high_leds, 1);
+    }
+    Serial.print(frequency);
+    Serial.print(",");
+    Serial.print(correctFrequency);
+    Serial.print(",");
+    Serial.print(one_third);
+    Serial.print(",");
+    Serial.print(two_thirds);
+    Serial.print(",");
+    Serial.println(halfway_next_tone);
+  } else {
+    powerCorrectLeds(true);
+    setLeds(low_leds, 0);
+    setLeds(high_leds, 0);
+  }
+}
+
+//Determine the correct frequency and display the note on 7SEG
+void checkNote(float frequency){
+  octave = floor((log(frequency/16.35)/log(2)));
+
+  // float lower_b_note =  30.87*pow(2,octave-1);
+  float c_note =        16.35*pow(2,octave);
+  float c_sharp_note =  17.32*pow(2,octave);
+  float d_note =        18.35*pow(2,octave);
+  float d_sharp_note =  19.45*pow(2,octave);
+  float e_note =        20.60*pow(2,octave);
+  float f_note =        21.83*pow(2,octave);
+  float f_sharp_note =  23.12*pow(2,octave);
+  float g_note =        24.50*pow(2,octave);
+  float g_sharp_note =  25.96*pow(2,octave);
+  float a_note =        27.50*pow(2,octave);
+  float a_sharp_note =  29.14*pow(2,octave);
+  float b_note =        30.87*pow(2,octave);
+  // float higher_c_note = 16.35*pow(2,octave+1);
+  
+  if (frequency > calculateHalfway(c_note, c_sharp_note)) {
+    if (frequency > calculateHalfway(c_sharp_note, d_note)) {
+      if (frequency > calculateHalfway(d_note, d_sharp_note)) {
+        if (frequency > calculateHalfway(d_sharp_note, e_note)) {
+          if (frequency > calculateHalfway(e_note, f_note)) {
+            if (frequency > calculateHalfway(f_note, f_sharp_note)) {
+              if (frequency > calculateHalfway(f_sharp_note, g_note)) {
+                if (frequency > calculateHalfway(g_note, g_sharp_note)) {
+                  if (frequency > calculateHalfway(g_sharp_note,a_note)) {
+                    if (frequency > calculateHalfway(a_note, a_sharp_note)) {
+                      if (frequency > calculateHalfway(a_sharp_note, b_note)) {
+                        // B
+                        displayNote('B', false);
+                        correctFrequency = b_note;
+                      } else {
+                        // A#
+                        displayNote('A', true);
+                        correctFrequency = a_sharp_note;
+                      }
+                    } else {
+                      // A
+                      displayNote('A', false);
+                      correctFrequency = a_note;
+                    }
+                  } else {
+                    // G#
+                    displayNote('G', true);
+                    correctFrequency = g_sharp_note;
+                  }
+                } else {
+                  // G
+                  displayNote('G', false);
+                  correctFrequency = g_note;
+                }
+              } else {
+                // F#
+                displayNote('F', true);
+                correctFrequency = f_sharp_note;
+              }
+            } else {
+              // F
+              displayNote('F', false);
+              correctFrequency = f_note;
+            }
+          } else {
+            // E
+            displayNote('E', false);
+            correctFrequency = e_note;
+          }
+        } else {
+          // D#
+          displayNote('D', true);
+          correctFrequency = d_sharp_note;
+        }
+      } else {
+        // D
+        displayNote('D', false);
+        correctFrequency = d_note;
+      }
+    } else {
+      // C#
+      displayNote('C', true);
+      correctFrequency = c_sharp_note;
+    }
+  } else {
+    // C
+    displayNote('C', false);
+    correctFrequency = c_note;
+  }
+}
+
+float calculateHalfway(float low, float high) {
+  float halfway = low + (high - low)/2;
+  return halfway;
 }
