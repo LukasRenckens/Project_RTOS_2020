@@ -253,7 +253,7 @@ void checkNote(float frequency){
   float a_note =        27.50*pow(2,octave);
   float a_sharp_note =  29.14*pow(2,octave);
   float b_note =        30.87*pow(2,octave);
-  // float higher_c_note = 16.35*pow(2,octave+1);
+  float higher_c_note = 16.35*pow(2,octave+1);
   
   if (frequency > calculateHalfway(c_note, c_sharp_note)) {
     if (frequency > calculateHalfway(c_sharp_note, d_note)) {
@@ -266,9 +266,15 @@ void checkNote(float frequency){
                   if (frequency > calculateHalfway(g_sharp_note,a_note)) {
                     if (frequency > calculateHalfway(a_note, a_sharp_note)) {
                       if (frequency > calculateHalfway(a_sharp_note, b_note)) {
-                        // B
-                        displayNote('B', false);
-                        correctFrequency = b_note;
+                        if (frequency > calculateHalfway(b_note, higher_c_note)) {
+                          // C
+                          displayNote('C', false);
+                          correctFrequency = higher_c_note;
+                        } else {
+                          // B
+                          displayNote('B', false);
+                          correctFrequency = b_note;
+                        }
                       } else {
                         // A#
                         displayNote('A', true);
@@ -324,9 +330,4 @@ void checkNote(float frequency){
     displayNote('C', false);
     correctFrequency = c_note;
   }
-}
-
-float calculateHalfway(float low, float high) {
-  float halfway = low + (high - low)/2;
-  return halfway;
 }
