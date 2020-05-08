@@ -53,8 +53,6 @@ void reset(void);
 void checkClipping();
 
 // Define two tasks for Blink & AnalogRead
-// void TaskBlink(void *pvParameters);
-// void TaskAnalogRead(void *pvParameters);
 void TaskReadFrequency(void *pvParameters);
 void TaskShowOutput(void *pvParameters);
 
@@ -80,16 +78,9 @@ void setup() {
     pinMode(high_leds[i], OUTPUT);
   }
 
-  // Now set up two tasks to run independently.
-  //xTaskCreate(TaskBlink, "Blink", 128, NULL, 2, NULL );
-  // A name just for humans, Stack size, priority
 
-  //xTaskCreate(TaskAnalogRead, "AnalogRead", 128, NULL, 1, NULL );
-  // This stack size can be checked & adjusted by reading Highwater
-  // priority
-
-  xTaskCreate(TaskReadFrequency, "ReadFrequency", 128, NULL, 1, NULL);  //Task, Name, Stack size, PvParameters, Priority, PuxStackBuffer, pxTaskBuffer 
-  xTaskCreate(TaskShowOutput, "ShowOutput", 128, NULL, 2, NULL);  //Task, Name, Stack size, PvParameters, Priority, PuxStackBuffer, pxTaskBuffer 
+  xTaskCreate(TaskReadFrequency, "ReadFrequency", 128, NULL, 2, NULL);  //Task, Name, Stack size, PvParameters, Priority, PuxStackBuffer, pxTaskBuffer 
+  xTaskCreate(TaskShowOutput, "ShowOutput", 128, NULL, 1, NULL);  //Task, Name, Stack size, PvParameters, Priority, PuxStackBuffer, pxTaskBuffer 
 
    
   // Now the task scheduler, which takes over control of scheduling individual tasks, is automatically started.
@@ -103,47 +94,8 @@ void loop()
 /*--------------------------------------------------*/
 /*---------------------- Tasks ---------------------*/
 /*--------------------------------------------------*/
-
-//void TaskBlink(void *pvParameters)  // This is a task.
-//{
-//  (void) pvParameters;
-//
-//  // initialize digital pin 13 as an output.
-//  pinMode(13, OUTPUT);
-//
-//  for (;;) // A Task shall never return or exit.
-//  {
-//    digitalWrite(13, HIGH);   // turn the LED on (HIGH is the voltage level)
-//    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
-//    digitalWrite(13, LOW);    // turn the LED off by making the voltage LOW
-//    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
-//  }
-//}
-
-//void TaskAnalogRead(void *pvParameters)  // This is a task.
-//{
-//  (void) pvParameters;
-//
-//  // initialize serial communication at 9600 bits per second:
-//  Serial.begin(9600);
-//
-//  for (;;)
-//  {
-//    // read the input on analog pin 0:
-//    int sensorValue = analogRead(A0);
-//    // print out the value you read:
-//    Serial.println(sensorValue);
-//    vTaskDelay(1);  // one tick delay (15ms) in between reads for stability
-//  }
-//}
-
 void TaskReadFrequency(void *pvParameters){
   (void) pvParameters;
-  // Serial.begin(9600); -> Is verplaatst naar setup
-  
-  // WORDEN GEBRUIKT VOOR 7SEG OP DIT MOMENT!!!
-  // pinMode(13,OUTPUT);//led indicator pin
-  // pinMode(12,OUTPUT);//output pin
   
   cli();//diable interrupts
   
@@ -152,17 +104,18 @@ void TaskReadFrequency(void *pvParameters){
   //clear ADCSRA and ADCSRB registers
   ADCSRA = 0;
   ADCSRB = 0;
+
+  ADMUX |= (1 << MUX2) | (1 << MUX1) | (1 << MUX0);       //Select ADC7 (A0)
+  ADMUX |= (1 << REFS0);                                  //set reference voltage
+  ADMUX |= (1 << ADLAR);                                  //left align the ADC value- so we can read highest 8 bits from ADCH register only
   
-  ADMUX |= (1 << REFS0);                    //set reference voltage
-  ADMUX |= (1 << ADLAR);                    //left align the ADC value- so we can read highest 8 bits from ADCH register only
+  ADCSRA |= (1 << ADPS2) | (1 << ADPS0);                  //set ADC clock with 32 prescaler- 16mHz/32=500kHz
+  ADCSRA |= (1 << ADATE);                                 //enabble auto trigger
+  ADCSRA |= (1 << ADIE);                                  //enable interrupts when measurement complete
+  ADCSRA |= (1 << ADEN);                                  //enable ADC
+  ADCSRA |= (1 << ADSC);                                  //start ADC measurements
   
-  ADCSRA |= (1 << ADPS2) | (1 << ADPS0);    //set ADC clock with 32 prescaler- 16mHz/32=500kHz
-  ADCSRA |= (1 << ADATE);                   //enabble auto trigger
-  ADCSRA |= (1 << ADIE);                    //enable interrupts when measurement complete
-  ADCSRA |= (1 << ADEN);                    //enable ADC
-  ADCSRA |= (1 << ADSC);                    //start ADC measurements
-  
-  sei();                                    //enable interrupts
+  sei();                                                  //enable interrupts
 
   for(;;){                                  //inf loop
     checkClipping();
@@ -176,7 +129,6 @@ void TaskReadFrequency(void *pvParameters){
       Serial.println(" hz");
     }
 
-    // NIET ZEKER OF DEZE DELAY NOODZAKELIJK IS??
     vTaskDelay(100/portTICK_PERIOD_MS); // wait for 100 ms
   }
 }
@@ -189,20 +141,22 @@ void TaskShowOutput(void *pvParameters) {
     determineNumberOfLeds(frequency);
 
     // NIET ZEKER OF DEZE DELAY NOODZAKELIJK IS??
-    vTaskDelay(100/portTICK_PERIOD_MS);
+    //vTaskDelay(100/portTICK_PERIOD_MS);
   }
 }
 
 /*--------------------------------------------------*/
 /*-------------------- Functions -------------------*/
 /*--------------------------------------------------*/
-void reset(){//clean out some variables
+//clean out some variables
+void reset(){
   index = 0;                    //reset index
   noMatch = 0;                  //reset match couner
   maxSlope = 0;                 //reset slope
 }
 
-void checkClipping(){//manage clipping indication
+//manage clipping indication
+void checkClipping(){
   if (clipping){               //if currently clipping
     clipping = 0;
   }
@@ -482,7 +436,7 @@ float calculateHalfway(float low, float high) {
 /*----------------------- ISR ----------------------*/
 /*--------------------------------------------------*/
 ISR(ADC_vect) {                                 //when new ADC value ready
-  PORTB &= B11101111;                           //set pin 12 low
+  //PORTB &= B11101111;                           //set pin 12 low
   prevData = newData;                           //store previous value
   newData = ADCH;                               //get value from A0
   if (prevData < 127 && newData >=127){         //if increasing and crossing midpoint
@@ -493,7 +447,7 @@ ISR(ADC_vect) {                                 //when new ADC value ready
       timer[index] = time;
       time = 0;
       if (index == 0){                          //new max slope just reset
-        PORTB |= B00010000;                     //set pin 12 high
+        //PORTB |= B00010000;                     //set pin 12 high
         noMatch = 0;
         index++;                                //increment index
       }
@@ -508,7 +462,7 @@ ISR(ADC_vect) {                                 //when new ADC value ready
         timer[0] = timer[index];
         slope[0] = slope[index];
         index = 1;                              //set index to 1
-        PORTB |= B00010000;                     //set pin 12 high
+        //PORTB |= B00010000;                     //set pin 12 high
         noMatch = 0;
       }
       else{                                     //crossing midpoint but not match

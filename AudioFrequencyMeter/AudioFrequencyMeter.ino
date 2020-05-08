@@ -54,7 +54,9 @@ void setup(){
   //clear ADCSRA and ADCSRB registers
   ADCSRA = 0;
   ADCSRB = 0;
-  
+
+  ADMUX |= (1 << MUX2) | (1 << MUX1) | (1 << MUX0);       //Select ADC7 (A0)
+
   ADMUX |= (1 << REFS0);                    //set reference voltage
   ADMUX |= (1 << ADLAR);                    //left align the ADC value- so we can read highest 8 bits from ADCH register only
   
