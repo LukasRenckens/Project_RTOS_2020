@@ -42,7 +42,7 @@ int timerTol = 10;            //timer tolerance- adjust this if you need (defaul
 unsigned int ampTimer = 0;
 byte maxAmp = 0;
 byte checkMaxAmp;
-byte ampThreshold = 8;       //raise if you have a very noisy signal (default = 30) (8 -> vpp = 350mV)
+byte ampThreshold = 24;       //raise if you have a very noisy signal (default = 30) (8 -> vpp = 350mV)
 
 // Variables for frequency to note conversion
 float correctFrequency;
