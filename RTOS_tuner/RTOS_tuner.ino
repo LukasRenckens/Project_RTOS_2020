@@ -60,7 +60,7 @@ void TaskShowOutput(void *pvParameters);
 void setup() {
   Serial.begin(9600);
 
-    // Outputs 7SEG
+  // Outputs 7SEG
   pinMode(SEG_A, OUTPUT);
   pinMode(SEG_B, OUTPUT);
   pinMode(SEG_C, OUTPUT);
@@ -78,7 +78,7 @@ void setup() {
     pinMode(high_leds[i], OUTPUT);
   }
 
-
+  // Create tasks
   xTaskCreate(TaskReadFrequency, "ReadFrequency", 128, NULL, 2, NULL);  //Task, Name, Stack size, PvParameters, Priority, PuxStackBuffer, pxTaskBuffer 
   xTaskCreate(TaskShowOutput, "ShowOutput", 128, NULL, 1, NULL);  //Task, Name, Stack size, PvParameters, Priority, PuxStackBuffer, pxTaskBuffer 
 
@@ -136,12 +136,9 @@ void TaskReadFrequency(void *pvParameters){
 void TaskShowOutput(void *pvParameters) {
   (void) pvParameters;
 
-  for(;;) {
+  for(;;) {                                 //inf loop
     checkNote(frequency);
     determineNumberOfLeds(frequency);
-
-    // NIET ZEKER OF DEZE DELAY NOODZAKELIJK IS??
-    //vTaskDelay(100/portTICK_PERIOD_MS);
   }
 }
 
@@ -270,17 +267,27 @@ void setLeds(int leds[NUMBER_OF_LEDS], int number) {
   }
 }
 
+// Controls the output of the LED's based on the measured frequency
 void determineNumberOfLeds(float frequency) {
+
+  // Calculate the margin of error (music tones are log2 based => exponential error)
   float error = 0.125*pow(2,octave);
 
+  // Frequency < correctFrequeny of the closest tone
   if (frequency < correctFrequency - error) {
+
+    // Calculate previous tone and the halfway point between the previous tone's frequency and the closest tone's frequency
     float previous_tone = correctFrequency * pow(2,-1.0/12);
     float halfway_previous_tone = calculateHalfway(previous_tone, correctFrequency - error);
 
+    // Divide the difference between the halfway point and the correct frequency of the closest tone in three parts
     float one_third = halfway_previous_tone + 2 * (correctFrequency - error - halfway_previous_tone)/3;
     float two_thirds = halfway_previous_tone + (correctFrequency - error - halfway_previous_tone)/3;
 
+    // Reset LED's
     powerCorrectLeds(false);
+
+    // Determine in which third the measured frequency belongs and display the LED's accordingly
     setLeds(high_leds, 0);
     if (frequency < two_thirds) {
       setLeds(low_leds, 3);
@@ -299,14 +306,22 @@ void determineNumberOfLeds(float frequency) {
     // Serial.print(two_thirds);
     // Serial.print(",");
     // Serial.println(halfway_previous_tone);
+
+  // Frequency > correctFrequeny of the closest tone
   } else if (frequency > correctFrequency + error) {
+
+    // Calculate next tone and the halfway point between the next tone's frequency and the closest tone's frequency
     float next_tone = correctFrequency * pow(2,1.0/12);
     float halfway_next_tone = calculateHalfway(correctFrequency + error, next_tone);
 
+    // Divide the difference between the halfway point and the correct frequency of the closest tone in three parts
     float one_third = halfway_next_tone - 2 * (halfway_next_tone - (correctFrequency + error))/3;
     float two_thirds = halfway_next_tone - (halfway_next_tone - (correctFrequency + error))/3;
 
+    // Reset LED's
     powerCorrectLeds(false);
+
+    // Determine in which third the measured frequency belongs and display the LED's accordingly
     setLeds(low_leds, 0);
     if (frequency > two_thirds) {
       setLeds(high_leds, 3);
@@ -325,18 +340,23 @@ void determineNumberOfLeds(float frequency) {
     // Serial.print(two_thirds);
     // Serial.print(",");
     // Serial.println(halfway_next_tone);
+
+  // If the measured frequency is within the margin for error
   } else {
+    // Power green LED's and reset other LED's
     powerCorrectLeds(true);
     setLeds(low_leds, 0);
     setLeds(high_leds, 0);
   }
 }
 
-//Determine the correct frequency and display the note on 7SEG
+// Determine the correct frequency and display the note on 7SEG
 void checkNote(float frequency){
+
+  // Calculate the octave of the measured frequency
   octave = floor((log(frequency/16.35)/log(2)));
 
-  // float lower_b_note =  30.87*pow(2,octave-1);
+  // Calculate all the tones in this frequency
   float c_note =        16.35*pow(2,octave);
   float c_sharp_note =  17.32*pow(2,octave);
   float d_note =        18.35*pow(2,octave);
@@ -351,6 +371,7 @@ void checkNote(float frequency){
   float b_note =        30.87*pow(2,octave);
   float higher_c_note = 16.35*pow(2,octave+1);
   
+  // Check the closest tone to the measured frequency
   if (frequency > calculateHalfway(c_note, c_sharp_note)) {
     if (frequency > calculateHalfway(c_sharp_note, d_note)) {
       if (frequency > calculateHalfway(d_note, d_sharp_note)) {
@@ -428,6 +449,7 @@ void checkNote(float frequency){
   }
 }
 
+// Helper function (could be improved by calculating the logaritmic halfway point instead of the linear)
 float calculateHalfway(float low, float high) {
   float halfway = low + (high - low)/2;
   return halfway;
